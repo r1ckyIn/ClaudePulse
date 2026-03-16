@@ -19,6 +19,8 @@ function loadSettings(): Settings {
 
 function saveSettings(settings: Settings): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(settings))
+  // Sync to main process so Notifier respects the toggles
+  window.claudePulse?.updateSettings(settings)
 }
 
 interface ToggleProps {
@@ -53,6 +55,12 @@ export default function SettingsView(): JSX.Element {
   useEffect(() => {
     saveSettings(settings)
   }, [settings])
+
+  // Sync initial settings to main process on mount
+  useEffect(() => {
+    const initial = loadSettings()
+    window.claudePulse?.updateSettings(initial)
+  }, [])
 
   return (
     <div className="settings-view">

@@ -51,6 +51,7 @@ export const IPC_CHANNELS = {
   GET_STATS: 'stats:get',
   STATS_UPDATED: 'stats:updated',
   TOGGLE_WINDOW: 'window:toggle',
+  UPDATE_SETTINGS: 'settings:update',
 } as const
 
 // Statistics for a single day

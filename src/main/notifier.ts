@@ -1,25 +1,38 @@
 import { Notification } from 'electron'
 import type { SessionState } from '../shared/types'
 
+export interface NotifierSettings {
+  notifications: boolean
+  completionNotifications: boolean
+}
+
 /**
  * Sends macOS system notifications when Claude Code needs user input.
  * Tracks which sessions have already been notified to avoid duplicates.
  */
 export class Notifier {
-  private notifiedSessions = new Set<string>()
+  private notifiedWaiting = new Set<string>()
+  private notifiedCompleted = new Set<string>()
+  private settings: NotifierSettings = {
+    notifications: true,
+    completionNotifications: true,
+  }
+
+  updateSettings(settings: NotifierSettings): void {
+    this.settings = settings
+  }
 
   notifyIfWaiting(session: SessionState): void {
     if (session.status !== 'waiting') {
       // Clear notification state when session is no longer waiting
-      this.notifiedSessions.delete(session.sessionId)
+      this.notifiedWaiting.delete(session.sessionId)
       return
     }
 
-    if (this.notifiedSessions.has(session.sessionId)) {
-      return
-    }
+    if (!this.settings.notifications) return
+    if (this.notifiedWaiting.has(session.sessionId)) return
 
-    this.notifiedSessions.add(session.sessionId)
+    this.notifiedWaiting.add(session.sessionId)
 
     const shortId = session.sessionId.slice(0, 4)
     const notification = new Notification({
@@ -32,9 +45,11 @@ export class Notifier {
   }
 
   notifyCompleted(session: SessionState): void {
-    if (session.status !== 'completed') {
-      return
-    }
+    if (session.status !== 'completed') return
+    if (!this.settings.completionNotifications) return
+    if (this.notifiedCompleted.has(session.sessionId)) return
+
+    this.notifiedCompleted.add(session.sessionId)
 
     const shortId = session.sessionId.slice(0, 4)
     const notification = new Notification({
@@ -44,14 +59,15 @@ export class Notifier {
     })
 
     notification.show()
-    this.notifiedSessions.delete(session.sessionId)
   }
 
   clearSession(sessionId: string): void {
-    this.notifiedSessions.delete(sessionId)
+    this.notifiedWaiting.delete(sessionId)
+    this.notifiedCompleted.delete(sessionId)
   }
 
   clearAll(): void {
-    this.notifiedSessions.clear()
+    this.notifiedWaiting.clear()
+    this.notifiedCompleted.clear()
   }
 }

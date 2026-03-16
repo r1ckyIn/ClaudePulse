@@ -108,6 +108,11 @@ app.whenReady().then(async () => {
   // Setup renderer IPC handlers
   setupIpcHandlers()
 
+  // Handle settings updates from renderer
+  ipcMain.on(IPC_CHANNELS.UPDATE_SETTINGS, (_event, settings) => {
+    notifier.updateSettings(settings)
+  })
+
   console.log('[ClaudePulse] Ready. Listening for Claude Code hook events.')
 })
 

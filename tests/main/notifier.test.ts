@@ -57,7 +57,7 @@ describe('Notifier', () => {
     const session = makeSession({ status: 'waiting' })
     notifier.notifyIfWaiting(session)
 
-    // Session becomes active
+    // Session becomes active (clears waiting tracking)
     notifier.notifyIfWaiting(makeSession({ status: 'thinking' }))
 
     // Session waits again
@@ -74,15 +74,33 @@ describe('Notifier', () => {
     expect(Notification).not.toHaveBeenCalled()
   })
 
-  it('should send completion notification', () => {
+  it('should send completion notification only once (no spam)', () => {
     const session = makeSession({ status: 'completed' })
     notifier.notifyCompleted(session)
+    notifier.notifyCompleted(session)
+    notifier.notifyCompleted(session)
 
+    // Should only fire once thanks to dedup
+    expect(Notification).toHaveBeenCalledTimes(1)
     expect(Notification).toHaveBeenCalledWith({
       title: 'Claude Code task completed',
       body: 'my-project #sess has finished',
       silent: true,
     })
+  })
+
+  it('should respect notifications disabled setting', () => {
+    notifier.updateSettings({ notifications: false, completionNotifications: true })
+
+    notifier.notifyIfWaiting(makeSession({ status: 'waiting' }))
+    expect(Notification).not.toHaveBeenCalled()
+  })
+
+  it('should respect completion notifications disabled setting', () => {
+    notifier.updateSettings({ notifications: true, completionNotifications: false })
+
+    notifier.notifyCompleted(makeSession({ status: 'completed' }))
+    expect(Notification).not.toHaveBeenCalled()
   })
 
   it('should clear session tracking on clearSession', () => {
