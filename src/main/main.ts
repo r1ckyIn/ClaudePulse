@@ -5,6 +5,7 @@ import { SessionManager } from './session-manager'
 import { TrayController } from './tray-controller'
 import { PopoverWindow } from './popover-window'
 import { HookInstaller } from './hook-installer'
+import { StatsStore } from './stats-store'
 import { IPC_CHANNELS } from '../shared/types'
 
 // Core components
@@ -12,6 +13,7 @@ const ipcServer = new IPCServer()
 const sessionManager = new SessionManager()
 const trayController = new TrayController()
 const popoverWindow = new PopoverWindow()
+let statsStore: StatsStore | null = null
 
 function broadcastSessions(): void {
   const sessions = sessionManager.getAll()
@@ -30,8 +32,7 @@ function setupIpcHandlers(): void {
   })
 
   ipcMain.handle(IPC_CHANNELS.GET_STATS, () => {
-    // Placeholder — full stats implemented in Phase 3
-    return []
+    return statsStore?.getStats() ?? []
   })
 }
 
@@ -82,9 +83,17 @@ app.whenReady().then(async () => {
     }
   })
 
-  // Start IPC server and forward messages to session manager
+  // Initialize stats store
+  statsStore = new StatsStore()
+
+  // Start IPC server and forward messages to session manager + stats
   await ipcServer.start()
-  ipcServer.on('message', (msg) => sessionManager.handleMessage(msg))
+  ipcServer.on('message', (msg) => {
+    sessionManager.handleMessage(msg)
+    if (msg.tool_name) {
+      statsStore?.recordToolCall(msg.tool_name)
+    }
+  })
 
   // Setup renderer IPC handlers
   setupIpcHandlers()
