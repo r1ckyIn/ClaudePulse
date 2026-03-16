@@ -6,6 +6,7 @@ import { TrayController } from './tray-controller'
 import { PopoverWindow } from './popover-window'
 import { HookInstaller } from './hook-installer'
 import { StatsStore } from './stats-store'
+import { Notifier } from './notifier'
 import { IPC_CHANNELS } from '../shared/types'
 
 // Core components
@@ -13,6 +14,7 @@ const ipcServer = new IPCServer()
 const sessionManager = new SessionManager()
 const trayController = new TrayController()
 const popoverWindow = new PopoverWindow()
+const notifier = new Notifier()
 let statsStore: StatsStore | null = null
 
 function broadcastSessions(): void {
@@ -74,9 +76,17 @@ app.whenReady().then(async () => {
   // Start session manager (cleanup timer)
   sessionManager.start()
 
-  // Wire session manager events to UI
-  sessionManager.on('updated', () => broadcastSessions())
+  // Wire session manager events to UI and notifications
+  sessionManager.on('updated', (sessions) => {
+    broadcastSessions()
+    // Send notifications for waiting/completed sessions
+    for (const session of sessions) {
+      notifier.notifyIfWaiting(session)
+      notifier.notifyCompleted(session)
+    }
+  })
   sessionManager.on('removed', (id: string) => {
+    notifier.clearSession(id)
     const win = popoverWindow.getWindow()
     if (win && !win.isDestroyed()) {
       win.webContents.send(IPC_CHANNELS.SESSION_REMOVED, id)
@@ -102,6 +112,7 @@ app.whenReady().then(async () => {
 })
 
 app.on('before-quit', async () => {
+  notifier.clearAll()
   sessionManager.stop()
   trayController.destroy()
   popoverWindow.destroy()
