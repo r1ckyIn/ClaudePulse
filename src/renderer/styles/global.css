@@ -3,6 +3,7 @@
 :root {
   --bg-primary: #faf9f5;
   --bg-card: #f5f3ee;
+  --bg-card-hover: #f0eeea;
   --text-primary: #141413;
   --text-secondary: #6b6966;
   --text-muted: #9a9790;
@@ -10,8 +11,10 @@
   --accent-blue: #6a9bcc;
   --accent-green: #788c5d;
   --accent-red: #c45d4f;
+  --accent-yellow: #c4a24d;
   --border: #e5e2dc;
   --shadow-card: 0 2px 8px rgba(20, 20, 19, 0.06);
+  --shadow-card-hover: 0 4px 12px rgba(20, 20, 19, 0.1);
   --radius-card: 14px;
   --radius-badge: 6px;
 }
@@ -23,14 +26,14 @@
   border-radius: 12px;
 }
 
-/* Header */
+/* ========== Header ========== */
 .header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 4px 4px 12px;
+  padding: 4px 4px 10px;
   border-bottom: 1px solid var(--border);
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 .header-title {
@@ -40,6 +43,12 @@
   letter-spacing: -0.01em;
 }
 
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .header-count {
   font-size: 11px;
   font-weight: 500;
@@ -47,27 +56,52 @@
   background: rgba(217, 119, 87, 0.1);
   padding: 2px 8px;
   border-radius: var(--radius-badge);
+  margin-left: 4px;
 }
 
-/* Session List */
+/* ========== Tab Buttons ========== */
+.tab-btn {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  padding: 3px 8px;
+  border-radius: var(--radius-badge);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.tab-btn:hover {
+  color: var(--text-secondary);
+  background: rgba(20, 20, 19, 0.04);
+}
+
+.tab-active {
+  color: var(--accent-orange);
+  background: rgba(217, 119, 87, 0.1);
+}
+
+/* ========== Session List ========== */
 .session-list {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-/* Session Card */
+/* ========== Session Card ========== */
 .session-card {
   background: var(--bg-card);
   border-radius: var(--radius-card);
   padding: 10px 12px;
   box-shadow: var(--shadow-card);
   border: 1px solid var(--border);
-  transition: box-shadow 0.2s ease;
+  transition: box-shadow 0.2s ease, background 0.2s ease;
 }
 
 .session-card:hover {
-  box-shadow: 0 4px 12px rgba(20, 20, 19, 0.1);
+  box-shadow: var(--shadow-card-hover);
+  background: var(--bg-card-hover);
 }
 
 .session-header {
@@ -103,7 +137,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding-left: 18px;
+  padding-left: 16px;
 }
 
 .session-status {
@@ -121,12 +155,15 @@
   border-radius: 4px;
 }
 
-/* Status Dot */
+.session-terminal {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-left: auto;
+}
+
+/* ========== Status Dot Animations ========== */
 .status-dot {
   display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
   flex-shrink: 0;
 }
 
@@ -152,16 +189,22 @@
 
 .status-error {
   box-shadow: 0 0 6px rgba(196, 93, 79, 0.4);
+  animation: blink 0.6s ease-in-out infinite;
 }
 
-/* Empty State */
+/* ========== Empty State ========== */
 .empty-state {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 40px 20px;
+  padding: 36px 20px;
   text-align: center;
+}
+
+.empty-icon {
+  margin-bottom: 12px;
+  opacity: 0.7;
 }
 
 .empty-title {
@@ -174,9 +217,102 @@
 .empty-subtitle {
   font-size: 11px;
   color: var(--text-muted);
+  line-height: 1.4;
 }
 
-/* Animations */
+/* ========== Stats Dashboard ========== */
+.stats-dashboard {
+  padding: 4px 0;
+}
+
+.stats-summary {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.stats-metric {
+  flex: 1;
+  background: var(--bg-card);
+  border-radius: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  text-align: center;
+}
+
+.stats-metric-value {
+  display: block;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--accent-orange);
+  font-family: 'SF Mono', 'Menlo', monospace;
+}
+
+.stats-metric-label {
+  display: block;
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.stats-section {
+  margin-bottom: 12px;
+}
+
+.stats-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+  letter-spacing: 0.02em;
+}
+
+.stats-bar-row {
+  margin-bottom: 6px;
+}
+
+.stats-bar-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 2px;
+}
+
+.stats-bar-label {
+  font-size: 11px;
+  font-family: 'SF Mono', 'Menlo', monospace;
+  color: var(--text-primary);
+}
+
+.stats-bar-sublabel {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.stats-bar-track {
+  height: 6px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.stats-bar-fill {
+  height: 100%;
+  background: var(--accent-orange);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.stats-empty {
+  text-align: center;
+  padding: 24px;
+}
+
+.stats-empty-text {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* ========== Animations ========== */
 @keyframes pulse {
   0%, 100% { opacity: 1; transform: scale(1); }
   50% { opacity: 0.6; transform: scale(0.85); }
@@ -189,5 +325,23 @@
 
 @keyframes blink {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.2; }
+  50% { opacity: 0.15; }
+}
+
+/* ========== Scrollbar ========== */
+::-webkit-scrollbar {
+  width: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
 }
