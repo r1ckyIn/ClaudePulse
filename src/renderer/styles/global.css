@@ -312,6 +312,93 @@
   color: var(--text-muted);
 }
 
+/* ========== Settings View ========== */
+.settings-view {
+  padding: 4px 0;
+}
+
+.settings-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 12px;
+}
+
+.settings-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.settings-toggle-text {
+  flex: 1;
+}
+
+.settings-toggle-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.settings-toggle-desc {
+  display: block;
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 1px;
+}
+
+.settings-switch {
+  width: 36px;
+  height: 20px;
+  border-radius: 10px;
+  background: var(--border);
+  border: none;
+  cursor: pointer;
+  position: relative;
+  transition: background 0.2s ease;
+  flex-shrink: 0;
+  margin-left: 12px;
+}
+
+.settings-switch-on {
+  background: var(--accent-orange);
+}
+
+.settings-switch-thumb {
+  display: block;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: white;
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  transition: transform 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+.settings-switch-on .settings-switch-thumb {
+  transform: translateX(16px);
+}
+
+.settings-info {
+  margin-top: 16px;
+  padding: 8px 10px;
+  background: var(--bg-card);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.settings-info-text {
+  font-size: 10px;
+  font-family: 'SF Mono', 'Menlo', monospace;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
 /* ========== Animations ========== */
 @keyframes pulse {
   0%, 100% { opacity: 1; transform: scale(1); }

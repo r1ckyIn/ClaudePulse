@@ -4,6 +4,7 @@ import type { ClaudePulseAPI } from '../main/preload'
 import SessionList from './components/SessionList'
 import EmptyState from './components/EmptyState'
 import StatsDashboard from './components/StatsDashboard'
+import SettingsView from './components/SettingsView'
 
 declare global {
   interface Window {
@@ -11,7 +12,7 @@ declare global {
   }
 }
 
-type View = 'sessions' | 'stats'
+type View = 'sessions' | 'stats' | 'settings'
 
 export default function App(): JSX.Element {
   const [sessions, setSessions] = useState<SessionState[]>([])
@@ -54,6 +55,12 @@ export default function App(): JSX.Element {
           >
             Stats
           </button>
+          <button
+            className={`tab-btn ${view === 'settings' ? 'tab-active' : ''}`}
+            onClick={() => setView('settings')}
+          >
+            &#9881;
+          </button>
           {view === 'sessions' && (
             <span className="header-count">{sessions.length}</span>
           )}
@@ -66,8 +73,10 @@ export default function App(): JSX.Element {
         ) : (
           <SessionList sessions={sessions} />
         )
-      ) : (
+      ) : view === 'stats' ? (
         <StatsDashboard />
+      ) : (
+        <SettingsView />
       )}
     </div>
   )
