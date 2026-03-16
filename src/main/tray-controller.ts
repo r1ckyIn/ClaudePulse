@@ -5,15 +5,19 @@ export class TrayController {
   private activeCount = 0
   private soundEnabled = true
   private onSoundToggle: ((enabled: boolean) => void) | null = null
+  private onToggleHUD: (() => void) | null = null
 
-  create(onSoundToggle: (enabled: boolean) => void): void {
-    this.onSoundToggle = onSoundToggle
+  create(callbacks: {
+    onSoundToggle: (enabled: boolean) => void
+    onToggleHUD: () => void
+  }): void {
+    this.onSoundToggle = callbacks.onSoundToggle
+    this.onToggleHUD = callbacks.onToggleHUD
 
-    const trayIcon = this.createAtomIcon()
+    const trayIcon = this.createAnthropicIcon()
     this.tray = new Tray(trayIcon)
     this.tray.setToolTip('ClaudePulse')
 
-    // Click opens the settings menu (like ClaudeGlance)
     this.tray.on('click', () => {
       this.showMenu()
     })
@@ -53,6 +57,10 @@ export class TrayController {
       },
       { type: 'separator' },
       {
+        label: 'Show/Hide HUD',
+        click: () => this.onToggleHUD?.(),
+      },
+      {
         label: 'Sound Notifications',
         type: 'checkbox',
         checked: this.soundEnabled,
@@ -73,10 +81,10 @@ export class TrayController {
   }
 
   /**
-   * Create an atom/orbital style icon in Anthropic warm orange.
-   * 16x16 template icon with orbital rings around a center dot.
+   * Anthropic-style sparkle/star icon in warm orange.
+   * Based on the ✦ motif from Claude branding.
    */
-  private createAtomIcon(): Electron.NativeImage {
+  private createAnthropicIcon(): Electron.NativeImage {
     const size = 32
     const canvas = Buffer.alloc(size * size * 4)
     const cx = size / 2
@@ -88,46 +96,28 @@ export class TrayController {
         const dx = x - cx
         const dy = y - cy
 
-        // Center nucleus (solid dot)
+        // 4-pointed star shape (Anthropic sparkle ✦)
+        const ax = Math.abs(dx)
+        const ay = Math.abs(dy)
+
+        // Star formula: along axes the star extends further
+        const axisStrength = Math.max(
+          Math.max(0, 1 - ax / 13) * Math.max(0, 1 - ay / 3.5),
+          Math.max(0, 1 - ay / 13) * Math.max(0, 1 - ax / 3.5)
+        )
+
+        // Small center dot
         const dist = Math.sqrt(dx * dx + dy * dy)
-        if (dist < 3.5) {
-          canvas[idx] = 0xd9
-          canvas[idx + 1] = 0x77
-          canvas[idx + 2] = 0x57
-          canvas[idx + 3] = 0xff
-          continue
-        }
+        const centerDot = Math.max(0, 1 - dist / 4)
 
-        // Orbital ring 1 (horizontal ellipse)
-        const e1x = dx / 12
-        const e1y = dy / 5
-        const ring1 = Math.abs(Math.sqrt(e1x * e1x + e1y * e1y) - 1)
+        const alpha = Math.min(1, axisStrength + centerDot)
 
-        // Orbital ring 2 (tilted ellipse ~60 degrees)
-        const angle2 = Math.PI / 3
-        const rx2 = dx * Math.cos(angle2) + dy * Math.sin(angle2)
-        const ry2 = -dx * Math.sin(angle2) + dy * Math.cos(angle2)
-        const e2x = rx2 / 12
-        const e2y = ry2 / 5
-        const ring2 = Math.abs(Math.sqrt(e2x * e2x + e2y * e2y) - 1)
-
-        // Orbital ring 3 (tilted ellipse ~-60 degrees)
-        const angle3 = -Math.PI / 3
-        const rx3 = dx * Math.cos(angle3) + dy * Math.sin(angle3)
-        const ry3 = -dx * Math.sin(angle3) + dy * Math.cos(angle3)
-        const e3x = rx3 / 12
-        const e3y = ry3 / 5
-        const ring3 = Math.abs(Math.sqrt(e3x * e3x + e3y * e3y) - 1)
-
-        const minRing = Math.min(ring1, ring2, ring3)
-        if (minRing < 0.12) {
-          const alpha = Math.max(0, 1 - minRing / 0.12)
+        if (alpha > 0.05) {
+          // Warm orange (#d97757)
           canvas[idx] = 0xd9
           canvas[idx + 1] = 0x77
           canvas[idx + 2] = 0x57
           canvas[idx + 3] = Math.round(alpha * 255)
-        } else {
-          canvas[idx + 3] = 0x00
         }
       }
     }

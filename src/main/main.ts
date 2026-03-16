@@ -75,11 +75,16 @@ app.whenReady().then(async () => {
   installHooks()
 
   // Create tray icon for settings (like ClaudeGlance)
-  trayController.create((soundEnabled) => {
-    notifier.updateSettings({
-      notifications: soundEnabled,
-      completionNotifications: soundEnabled,
-    })
+  trayController.create({
+    onSoundToggle: (soundEnabled) => {
+      notifier.updateSettings({
+        notifications: soundEnabled,
+        completionNotifications: soundEnabled,
+      })
+    },
+    onToggleHUD: () => {
+      floatingBall.toggle()
+    },
   })
 
   // Create floating ball (main monitoring UI)

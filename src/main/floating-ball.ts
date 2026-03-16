@@ -2,30 +2,27 @@ import { BrowserWindow, screen } from 'electron'
 import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
 
-const BALL_SIZE = 56
-const EXPANDED_WIDTH = 380
-const EXPANDED_MAX_HEIGHT = 520
-const EXPANDED_MIN_HEIGHT = 200
-const MARGIN = 12
+// ClaudeGlance-style HUD: dark floating panel, always on top
+const HUD_WIDTH = 320
+const HUD_BASE_HEIGHT = 60
+const SESSION_CARD_HEIGHT = 56
+const MAX_SESSIONS_VISIBLE = 8
+const MARGIN = 16
 
 export class FloatingBall {
   private window: BrowserWindow | null = null
-  private expanded = false
-  private ballPosition: { x: number; y: number } | null = null
 
   create(): void {
     const display = screen.getPrimaryDisplay()
-    const { width: screenW, height: screenH } = display.workAreaSize
+    const { width: screenW } = display.workAreaSize
 
-    // Start at right side, vertically centered
-    const x = screenW - BALL_SIZE - MARGIN
-    const y = Math.round(screenH / 2 - BALL_SIZE / 2)
-
-    this.ballPosition = { x, y }
+    // Position at top-right like ClaudeGlance
+    const x = screenW - HUD_WIDTH - MARGIN
+    const y = MARGIN
 
     this.window = new BrowserWindow({
-      width: BALL_SIZE,
-      height: BALL_SIZE,
+      width: HUD_WIDTH,
+      height: HUD_BASE_HEIGHT,
       x,
       y,
       show: false,
@@ -36,22 +33,15 @@ export class FloatingBall {
       fullscreenable: false,
       skipTaskbar: true,
       transparent: true,
-      hasShadow: false,
+      hasShadow: true,
       alwaysOnTop: true,
       visibleOnAllWorkspaces: true,
+      movable: true,
       webPreferences: {
         preload: join(__dirname, '../preload/preload.js'),
         contextIsolation: true,
         nodeIntegration: false,
       },
-    })
-
-    // Make the ball draggable but track position
-    this.window.on('moved', () => {
-      if (this.window && !this.expanded) {
-        const [nx, ny] = this.window.getPosition()
-        this.ballPosition = { x: nx, y: ny }
-      }
     })
 
     // Load renderer
@@ -66,77 +56,30 @@ export class FloatingBall {
     })
   }
 
+  // No expand/collapse — always shows the HUD panel
   toggle(): void {
     if (!this.window) return
-
-    if (this.expanded) {
-      this.collapse()
+    if (this.window.isVisible()) {
+      this.window.hide()
     } else {
-      this.expand()
+      this.window.show()
     }
   }
 
-  expand(): void {
-    if (!this.window || this.expanded) return
-    this.expanded = true
-
-    const display = screen.getPrimaryDisplay()
-    const { width: screenW } = display.workAreaSize
-
-    // Save ball position before expanding
-    const [bx, by] = this.window.getPosition()
-    this.ballPosition = { x: bx, y: by }
-
-    // Expand from ball position, anchored to the right
-    const expandX = Math.min(bx, screenW - EXPANDED_WIDTH - MARGIN)
-    const expandY = by
-
-    this.window.setResizable(true)
-    this.window.setBounds({
-      x: expandX,
-      y: expandY,
-      width: EXPANDED_WIDTH,
-      height: EXPANDED_MIN_HEIGHT,
-    })
-    this.window.setResizable(false)
-
-    this.window.webContents.send('floating:expanded', true)
-  }
-
-  collapse(): void {
-    if (!this.window || !this.expanded) return
-    this.expanded = false
-
-    const pos = this.ballPosition || { x: 100, y: 100 }
-
-    this.window.setResizable(true)
-    this.window.setBounds({
-      x: pos.x,
-      y: pos.y,
-      width: BALL_SIZE,
-      height: BALL_SIZE,
-    })
-    this.window.setResizable(false)
-
-    this.window.webContents.send('floating:expanded', false)
-  }
-
   isExpanded(): boolean {
-    return this.expanded
+    return true // HUD is always "expanded"
   }
 
   updateExpandedHeight(sessionCount: number): void {
-    if (!this.window || !this.expanded) return
+    if (!this.window) return
 
-    const contentHeight = Math.max(
-      EXPANDED_MIN_HEIGHT,
-      Math.min(sessionCount * 72 + 100, EXPANDED_MAX_HEIGHT)
-    )
+    const clampedCount = Math.min(sessionCount, MAX_SESSIONS_VISIBLE)
+    const height = clampedCount > 0
+      ? clampedCount * SESSION_CARD_HEIGHT + 16
+      : HUD_BASE_HEIGHT
 
     const bounds = this.window.getBounds()
-    this.window.setResizable(true)
-    this.window.setBounds({ ...bounds, height: contentHeight })
-    this.window.setResizable(false)
+    this.window.setBounds({ ...bounds, height })
   }
 
   getWindow(): BrowserWindow | null {

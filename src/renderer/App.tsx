@@ -1,10 +1,7 @@
 import { useState, useEffect } from 'react'
 import type { SessionState } from '../shared/types'
 import type { ClaudePulseAPI } from '../main/preload'
-import SessionList from './components/SessionList'
-import EmptyState from './components/EmptyState'
-import StatsDashboard from './components/StatsDashboard'
-import SettingsView from './components/SettingsView'
+import './styles/global.css'
 
 declare global {
   interface Window {
@@ -12,44 +9,79 @@ declare global {
   }
 }
 
-type View = 'sessions' | 'stats' | 'settings'
-
-function FloatingBallView({ sessions, onClick }: { sessions: SessionState[]; onClick: () => void }): JSX.Element {
-  const activeCount = sessions.length
-  const hasWaiting = sessions.some((s) => s.status === 'waiting')
-  const hasActive = sessions.some((s) =>
-    ['reading', 'writing', 'thinking'].includes(s.status)
-  )
-
-  // Determine ball color based on state
-  let ballClass = 'ball-idle'
-  if (hasWaiting) ballClass = 'ball-waiting'
-  else if (hasActive) ballClass = 'ball-active'
-  else if (activeCount > 0) ballClass = 'ball-has-sessions'
+// 4x4 Pixel Spinner (like ClaudeGlance)
+function PixelSpinner({ status }: { status: string }): JSX.Element {
+  const colorMap: Record<string, string> = {
+    reading: '#6ae4ff',
+    writing: '#b388ff',
+    thinking: '#ffb74d',
+    waiting: '#ffd54f',
+    completed: '#81c784',
+    error: '#ef5350',
+    idle: '#666',
+  }
+  const color = colorMap[status] || colorMap.idle
+  const animClass = `spinner-${status}`
 
   return (
-    <div className={`floating-ball ${ballClass}`} onClick={onClick}>
-      <div className="ball-face">
-        {activeCount === 0 ? (
-          // Sleeping face when idle
-          <span className="ball-emoji">&#x1F4A4;</span>
-        ) : hasWaiting ? (
-          // Eyes with exclamation when waiting for input
-          <span className="ball-emoji">&#x2757;</span>
-        ) : (
-          // Active count
-          <span className="ball-count">{activeCount}</span>
-        )}
+    <div className={`pixel-spinner ${animClass}`}>
+      {Array.from({ length: 16 }, (_, i) => (
+        <div
+          key={i}
+          className="pixel"
+          style={{ backgroundColor: color, animationDelay: `${i * 0.05}s` }}
+        />
+      ))}
+    </div>
+  )
+}
+
+function formatElapsed(startedAt: number): string {
+  const s = Math.floor((Date.now() - startedAt) / 1000)
+  if (s < 60) return `${s}s`
+  if (s < 3600) return `${Math.floor(s / 60)}m`
+  return `${Math.floor(s / 3600)}h${Math.floor((s % 3600) / 60)}m`
+}
+
+function SessionCard({ session }: { session: SessionState }): JSX.Element {
+  const shortId = session.sessionId.slice(0, 4)
+
+  const statusText = session.status === 'waiting'
+    ? 'Waiting for response...'
+    : session.status === 'completed'
+      ? 'Task completed'
+      : session.currentTool
+        ? `${session.currentTool}`
+        : session.status
+
+  return (
+    <div className="hud-card">
+      <PixelSpinner status={session.status} />
+      <div className="hud-card-info">
+        <div className="hud-card-action">{statusText}</div>
+        <div className="hud-card-meta">
+          <span className="hud-project">{session.project}</span>
+          <span className="hud-separator">·</span>
+          <span className="hud-id">#{shortId}</span>
+          <span className="hud-separator">·</span>
+          <span className="hud-elapsed">{formatElapsed(session.startedAt)}</span>
+        </div>
       </div>
-      {activeCount > 0 && <div className="ball-ring" />}
+    </div>
+  )
+}
+
+function EmptyHUD(): JSX.Element {
+  return (
+    <div className="hud-empty">
+      <PixelSpinner status="idle" />
+      <span className="hud-empty-text">No active sessions</span>
     </div>
   )
 }
 
 export default function App(): JSX.Element {
   const [sessions, setSessions] = useState<SessionState[]>([])
-  const [expanded, setExpanded] = useState(false)
-  const [view, setView] = useState<View>('sessions')
 
   useEffect(() => {
     window.claudePulse?.getSessions().then(setSessions)
@@ -58,7 +90,6 @@ export default function App(): JSX.Element {
     const unsubRemove = window.claudePulse?.onSessionRemoved((id) => {
       setSessions((prev) => prev.filter((s) => s.sessionId !== id))
     })
-    const unsubExpanded = window.claudePulse?.onExpandedChanged(setExpanded)
 
     const timer = setInterval(() => {
       setSessions((prev) => [...prev])
@@ -67,64 +98,23 @@ export default function App(): JSX.Element {
     return () => {
       unsubUpdate?.()
       unsubRemove?.()
-      unsubExpanded?.()
       clearInterval(timer)
     }
   }, [])
 
-  const handleBallClick = (): void => {
-    window.claudePulse?.toggleFloating()
-  }
-
-  if (!expanded) {
-    return <FloatingBallView sessions={sessions} onClick={handleBallClick} />
-  }
+  const sorted = [...sessions].sort((a, b) => {
+    if (a.status === 'completed' && b.status !== 'completed') return 1
+    if (a.status !== 'completed' && b.status === 'completed') return -1
+    return b.lastActivityAt - a.lastActivityAt
+  })
 
   return (
-    <div className="expanded-panel">
-      <div className="panel-header">
-        <button className="collapse-btn" onClick={handleBallClick}>
-          &#x25C0;
-        </button>
-        <span className="header-title">ClaudePulse</span>
-        <div className="header-right">
-          <button
-            className={`tab-btn ${view === 'sessions' ? 'tab-active' : ''}`}
-            onClick={() => setView('sessions')}
-          >
-            Sessions
-          </button>
-          <button
-            className={`tab-btn ${view === 'stats' ? 'tab-active' : ''}`}
-            onClick={() => setView('stats')}
-          >
-            Stats
-          </button>
-          <button
-            className={`tab-btn ${view === 'settings' ? 'tab-active' : ''}`}
-            onClick={() => setView('settings')}
-          >
-            &#9881;
-          </button>
-          {view === 'sessions' && (
-            <span className="header-count">{sessions.length}</span>
-          )}
-        </div>
-      </div>
-
-      <div className="panel-content">
-        {view === 'sessions' ? (
-          sessions.length === 0 ? (
-            <EmptyState />
-          ) : (
-            <SessionList sessions={sessions} />
-          )
-        ) : view === 'stats' ? (
-          <StatsDashboard />
-        ) : (
-          <SettingsView />
-        )}
-      </div>
+    <div className="hud-container">
+      {sorted.length === 0 ? (
+        <EmptyHUD />
+      ) : (
+        sorted.map((s) => <SessionCard key={s.sessionId} session={s} />)
+      )}
     </div>
   )
 }

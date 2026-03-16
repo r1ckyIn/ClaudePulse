@@ -1,4 +1,3 @@
-import { Notification } from 'electron'
 import { execFile } from 'child_process'
 import type { SessionState } from '../shared/types'
 
@@ -8,12 +7,13 @@ export interface NotifierSettings {
 }
 
 /**
- * Sends macOS system notifications when Claude Code needs user input.
- * Tracks which sessions have already been notified to avoid duplicates.
+ * Sound-only notifications (no macOS notification banners).
+ * Uses ClaudeGlance's sound scheme: Ping (attention) + Hero (completion).
  */
 export class Notifier {
   private notifiedWaiting = new Set<string>()
   private notifiedCompleted = new Set<string>()
+  private lastSoundTime: Record<string, number> = {}
   private settings: NotifierSettings = {
     notifications: true,
     completionNotifications: true,
@@ -25,7 +25,6 @@ export class Notifier {
 
   notifyIfWaiting(session: SessionState): void {
     if (session.status !== 'waiting') {
-      // Clear notification state when session is no longer waiting
       this.notifiedWaiting.delete(session.sessionId)
       return
     }
@@ -34,15 +33,6 @@ export class Notifier {
     if (this.notifiedWaiting.has(session.sessionId)) return
 
     this.notifiedWaiting.add(session.sessionId)
-
-    const shortId = session.sessionId.slice(0, 4)
-    const notification = new Notification({
-      title: 'Claude Code needs input',
-      body: `${session.project} #${shortId} is waiting for your response`,
-      silent: false,
-    })
-
-    notification.show()
     this.playSound('Ping')
   }
 
@@ -52,21 +42,17 @@ export class Notifier {
     if (this.notifiedCompleted.has(session.sessionId)) return
 
     this.notifiedCompleted.add(session.sessionId)
-
-    const shortId = session.sessionId.slice(0, 4)
-    const notification = new Notification({
-      title: 'Claude Code task completed',
-      body: `${session.project} #${shortId} has finished`,
-      silent: false,
-    })
-
-    notification.show()
     this.playSound('Hero')
   }
 
   private playSound(name: 'Ping' | 'Hero'): void {
-    // Use same macOS system sounds as ClaudeGlance
-    // Ping = attention/waiting, Hero = completion
+    // Debounce: same sound type at most once per 10 seconds (like ClaudeGlance)
+    const now = Date.now()
+    if (this.lastSoundTime[name] && now - this.lastSoundTime[name] < 10_000) {
+      return
+    }
+    this.lastSoundTime[name] = now
+
     const soundPath = `/System/Library/Sounds/${name}.aiff`
     execFile('afplay', [soundPath], () => {
       // Silent fail — sound is non-critical
