@@ -1,0 +1,7 @@
+{
+  "projectName": "ClaudePulse",
+  "granularity": "coarse",
+  "parallelExecution": true,
+  "yoloMode": true,
+  "modelProfile": "quality"
+}

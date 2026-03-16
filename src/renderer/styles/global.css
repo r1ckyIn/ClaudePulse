@@ -1,0 +1,193 @@
+/* ClaudePulse — Anthropic Aesthetic */
+
+:root {
+  --bg-primary: #faf9f5;
+  --bg-card: #f5f3ee;
+  --text-primary: #141413;
+  --text-secondary: #6b6966;
+  --text-muted: #9a9790;
+  --accent-orange: #d97757;
+  --accent-blue: #6a9bcc;
+  --accent-green: #788c5d;
+  --accent-red: #c45d4f;
+  --border: #e5e2dc;
+  --shadow-card: 0 2px 8px rgba(20, 20, 19, 0.06);
+  --radius-card: 14px;
+  --radius-badge: 6px;
+}
+
+.container {
+  padding: 12px;
+  min-height: 100%;
+  background: var(--bg-primary);
+  border-radius: 12px;
+}
+
+/* Header */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 4px 12px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 12px;
+}
+
+.header-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.header-count {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--accent-orange);
+  background: rgba(217, 119, 87, 0.1);
+  padding: 2px 8px;
+  border-radius: var(--radius-badge);
+}
+
+/* Session List */
+.session-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Session Card */
+.session-card {
+  background: var(--bg-card);
+  border-radius: var(--radius-card);
+  padding: 10px 12px;
+  box-shadow: var(--shadow-card);
+  border: 1px solid var(--border);
+  transition: box-shadow 0.2s ease;
+}
+
+.session-card:hover {
+  box-shadow: 0 4px 12px rgba(20, 20, 19, 0.1);
+}
+
+.session-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.session-project {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.session-id {
+  font-weight: 400;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.session-elapsed {
+  font-size: 11px;
+  font-family: 'SF Mono', 'Menlo', monospace;
+  color: var(--text-muted);
+}
+
+.session-detail {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-left: 18px;
+}
+
+.session-status {
+  font-size: 11px;
+  color: var(--text-secondary);
+  text-transform: capitalize;
+}
+
+.session-tool {
+  font-size: 11px;
+  font-family: 'SF Mono', 'Menlo', monospace;
+  color: var(--accent-orange);
+  background: rgba(217, 119, 87, 0.08);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+/* Status Dot */
+.status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.status-reading {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.status-writing {
+  animation: pulse 0.8s ease-in-out infinite;
+}
+
+.status-thinking {
+  animation: breathe 2s ease-in-out infinite;
+}
+
+.status-waiting {
+  animation: blink 1s ease-in-out infinite;
+}
+
+.status-completed {
+  box-shadow: 0 0 6px rgba(120, 140, 93, 0.4);
+}
+
+.status-error {
+  box-shadow: 0 0 6px rgba(196, 93, 79, 0.4);
+}
+
+/* Empty State */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.empty-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+.empty-subtitle {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* Animations */
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(0.85); }
+}
+
+@keyframes breathe {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.2; }
+}
