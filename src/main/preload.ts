@@ -2,12 +2,18 @@ import { contextBridge, ipcRenderer } from 'electron'
 import { IPC_CHANNELS } from '../shared/types'
 import type { SessionState, DayStats } from '../shared/types'
 
+export interface NotificationSettings {
+  notifications: boolean
+  completionNotifications: boolean
+}
+
 export interface ClaudePulseAPI {
   onSessionsUpdated: (callback: (sessions: SessionState[]) => void) => () => void
   onSessionRemoved: (callback: (sessionId: string) => void) => () => void
   getSessions: () => Promise<SessionState[]>
   getStats: () => Promise<DayStats[]>
   onStatsUpdated: (callback: (stats: DayStats[]) => void) => () => void
+  updateSettings: (settings: NotificationSettings) => void
 }
 
 const api: ClaudePulseAPI = {
@@ -30,6 +36,8 @@ const api: ClaudePulseAPI = {
   getSessions: () => ipcRenderer.invoke(IPC_CHANNELS.GET_SESSIONS),
 
   getStats: () => ipcRenderer.invoke(IPC_CHANNELS.GET_STATS),
+
+  updateSettings: (settings) => ipcRenderer.send(IPC_CHANNELS.UPDATE_SETTINGS, settings),
 
   onStatsUpdated: (callback) => {
     const handler = (_event: Electron.IpcRendererEvent, stats: DayStats[]): void => {

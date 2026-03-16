@@ -6,5 +6,8 @@ export default defineConfig({
     environment: 'node',
     include: ['tests/**/*.test.ts'],
     exclude: ['tests/renderer/**'],
+    // Tests share a Unix socket, must run sequentially
+    fileParallelism: false,
+    testTimeout: 10000,
   },
 })

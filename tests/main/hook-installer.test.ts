@@ -7,7 +7,6 @@ import { HookInstaller } from '../../src/main/hook-installer'
 // Use a temp directory to avoid modifying real ~/.claude
 const TEST_DIR = join(tmpdir(), 'claude-pulse-test-' + process.pid)
 const HOOKS_DIR = join(TEST_DIR, 'hooks')
-const SETTINGS_PATH = join(TEST_DIR, 'settings.json')
 const REPORTER_SOURCE = join(TEST_DIR, 'reporter-source.js')
 
 // Override the module's constants for testing

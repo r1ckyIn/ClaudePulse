@@ -1,5 +1,5 @@
 import { EventEmitter } from 'events'
-import type { HookMessage, SessionState, SessionStatus, DayStats } from '../shared/types'
+import type { HookMessage, SessionState, SessionStatus } from '../shared/types'
 import { TOOL_STATUS_MAP, MAX_TOOL_HISTORY, TIMEOUT_COMPLETED, TIMEOUT_IDLE, TIMEOUT_ACTIVE, CLEANUP_INTERVAL } from '../shared/constants'
 
 export class SessionManager extends EventEmitter {
