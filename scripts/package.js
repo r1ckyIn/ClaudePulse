@@ -51,6 +51,16 @@ async function main() {
     path.join(scriptsDir, 'claude-pulse-reporter.js')
   )
   console.log('[package] Reporter script copied to Resources/scripts/')
+
+  // Copy to /Applications so it appears in Launchpad
+  const appSrc = path.join(appPaths[0], 'ClaudePulse.app')
+  const appDest = '/Applications/ClaudePulse.app'
+  try {
+    fs.cpSync(appSrc, appDest, { recursive: true, force: true })
+    console.log('[package] Installed to /Applications/ClaudePulse.app')
+  } catch (e) {
+    console.log('[package] Could not copy to /Applications (try with sudo)')
+  }
 }
 
 main().catch((err) => {
