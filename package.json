@@ -12,15 +12,12 @@
     "test:watch": "vitest",
     "lint": "eslint . --max-warnings 0",
     "typecheck": "tsc --noEmit",
-    "make": "electron-forge make",
-    "package": "electron-forge package",
+    "package": "node scripts/package.js",
     "verify": "pnpm build && pnpm test && pnpm lint && pnpm typecheck"
   },
   "devDependencies": {
-    "@electron-forge/cli": "^7.6.0",
-    "@electron-forge/maker-dmg": "^7.6.0",
-    "@electron-forge/maker-zip": "^7.6.0",
     "@electron-toolkit/utils": "^4.0.0",
+    "@electron/packager": "^19.1.0",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.1.0",
     "@types/node": "^22.10.0",

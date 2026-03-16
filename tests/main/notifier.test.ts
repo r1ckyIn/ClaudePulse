@@ -85,7 +85,7 @@ describe('Notifier', () => {
     expect(Notification).toHaveBeenCalledWith({
       title: 'Claude Code task completed',
       body: 'my-project #sess has finished',
-      silent: true,
+      silent: false,
     })
   })
 
