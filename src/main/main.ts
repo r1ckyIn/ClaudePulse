@@ -1,113 +1,32 @@
 import { app, ipcMain } from 'electron'
+import { join } from 'path'
 import { IPCServer } from './ipc-server'
+import { SessionManager } from './session-manager'
 import { TrayController } from './tray-controller'
 import { PopoverWindow } from './popover-window'
+import { HookInstaller } from './hook-installer'
 import { IPC_CHANNELS } from '../shared/types'
-import type { HookMessage, SessionState, SessionStatus } from '../shared/types'
-import { TOOL_STATUS_MAP, MAX_TOOL_HISTORY, TIMEOUT_COMPLETED, TIMEOUT_IDLE, TIMEOUT_ACTIVE, CLEANUP_INTERVAL } from '../shared/constants'
-
-// Session store keyed by session_id
-const sessions = new Map<string, SessionState>()
 
 // Core components
 const ipcServer = new IPCServer()
+const sessionManager = new SessionManager()
 const trayController = new TrayController()
 const popoverWindow = new PopoverWindow()
 
-let cleanupTimer: ReturnType<typeof setInterval> | null = null
-
-function deriveStatus(message: HookMessage): SessionStatus {
-  switch (message.hook_event_name) {
-    case 'PreToolUse':
-      return message.tool_name
-        ? (TOOL_STATUS_MAP[message.tool_name] ?? 'thinking')
-        : 'thinking'
-    case 'PostToolUse':
-      return 'thinking'
-    case 'Notification':
-      return 'waiting'
-    case 'Stop':
-      return 'completed'
-    default:
-      return 'idle'
-  }
-}
-
-function handleMessage(message: HookMessage): void {
-  const now = Date.now()
-  const existing = sessions.get(message.session_id)
-
-  if (existing) {
-    existing.status = deriveStatus(message)
-    existing.lastActivityAt = now
-    existing.currentTool = message.tool_name ?? null
-    if (message.tool_name) {
-      existing.toolHistory.push(message.tool_name)
-      if (existing.toolHistory.length > MAX_TOOL_HISTORY) {
-        existing.toolHistory.shift()
-      }
-    }
-  } else {
-    const session: SessionState = {
-      sessionId: message.session_id,
-      project: message.project || 'Unknown',
-      cwd: message.cwd || '',
-      terminal: message.terminal || 'Terminal',
-      status: deriveStatus(message),
-      currentTool: message.tool_name ?? null,
-      startedAt: now,
-      lastActivityAt: now,
-      toolHistory: message.tool_name ? [message.tool_name] : [],
-    }
-    sessions.set(message.session_id, session)
-  }
-
-  broadcastSessions()
-}
-
 function broadcastSessions(): void {
-  const sessionList = Array.from(sessions.values())
-  trayController.updateCount(sessionList.length)
-  popoverWindow.updateHeight(sessionList.length)
+  const sessions = sessionManager.getAll()
+  trayController.updateCount(sessions.length)
+  popoverWindow.updateHeight(sessions.length)
 
   const win = popoverWindow.getWindow()
   if (win && !win.isDestroyed()) {
-    win.webContents.send(IPC_CHANNELS.SESSIONS_UPDATED, sessionList)
-  }
-}
-
-function cleanupStaleSessions(): void {
-  const now = Date.now()
-  let changed = false
-
-  for (const [id, session] of sessions) {
-    const elapsed = now - session.lastActivityAt
-
-    const shouldRemove =
-      (session.status === 'completed' && elapsed > TIMEOUT_COMPLETED) ||
-      (session.status === 'error' && elapsed > TIMEOUT_COMPLETED) ||
-      (session.status === 'idle' && elapsed > TIMEOUT_IDLE) ||
-      elapsed > TIMEOUT_ACTIVE
-
-    if (shouldRemove) {
-      sessions.delete(id)
-      changed = true
-
-      const win = popoverWindow.getWindow()
-      if (win && !win.isDestroyed()) {
-        win.webContents.send(IPC_CHANNELS.SESSION_REMOVED, id)
-      }
-    }
-  }
-
-  if (changed) {
-    broadcastSessions()
+    win.webContents.send(IPC_CHANNELS.SESSIONS_UPDATED, sessions)
   }
 }
 
 function setupIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.GET_SESSIONS, () => {
-    return Array.from(sessions.values())
+    return sessionManager.getAll()
   })
 
   ipcMain.handle(IPC_CHANNELS.GET_STATS, () => {
@@ -116,9 +35,31 @@ function setupIpcHandlers(): void {
   })
 }
 
+function installHooks(): void {
+  // Determine reporter source path (bundled with the app)
+  const isDev = !app.isPackaged
+  const reporterSource = isDev
+    ? join(__dirname, '../../scripts/claude-pulse-reporter.js')
+    : join(process.resourcesPath, 'scripts', 'claude-pulse-reporter.js')
+
+  const installer = new HookInstaller(reporterSource)
+
+  if (!installer.isInstalled()) {
+    const changed = installer.install()
+    if (changed) {
+      console.log('[ClaudePulse] Hooks installed to ~/.claude/settings.json')
+    }
+  } else {
+    console.log('[ClaudePulse] Hooks already installed')
+  }
+}
+
 app.whenReady().then(async () => {
   // Hide dock icon — this is a menu bar app
   app.dock?.hide()
+
+  // Install hooks on first launch
+  installHooks()
 
   // Create tray icon
   trayController.create(() => {
@@ -129,21 +70,30 @@ app.whenReady().then(async () => {
   // Create popover window
   popoverWindow.create()
 
-  // Start IPC server
+  // Start session manager (cleanup timer)
+  sessionManager.start()
+
+  // Wire session manager events to UI
+  sessionManager.on('updated', () => broadcastSessions())
+  sessionManager.on('removed', (id: string) => {
+    const win = popoverWindow.getWindow()
+    if (win && !win.isDestroyed()) {
+      win.webContents.send(IPC_CHANNELS.SESSION_REMOVED, id)
+    }
+  })
+
+  // Start IPC server and forward messages to session manager
   await ipcServer.start()
-  ipcServer.on('message', handleMessage)
+  ipcServer.on('message', (msg) => sessionManager.handleMessage(msg))
 
   // Setup renderer IPC handlers
   setupIpcHandlers()
-
-  // Start cleanup timer
-  cleanupTimer = setInterval(cleanupStaleSessions, CLEANUP_INTERVAL)
 
   console.log('[ClaudePulse] Ready. Listening for Claude Code hook events.')
 })
 
 app.on('before-quit', async () => {
-  if (cleanupTimer) clearInterval(cleanupTimer)
+  sessionManager.stop()
   trayController.destroy()
   popoverWindow.destroy()
   await ipcServer.stop()
