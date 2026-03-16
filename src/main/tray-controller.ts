@@ -1,30 +1,25 @@
 import { Tray, Menu, nativeImage, app } from 'electron'
-import { join } from 'path'
 
 export class TrayController {
   private tray: Tray | null = null
-  private onToggle: (() => void) | null = null
   private activeCount = 0
+  private soundEnabled = true
+  private onSoundToggle: ((enabled: boolean) => void) | null = null
 
-  create(onToggle: () => void): void {
-    this.onToggle = onToggle
+  create(onSoundToggle: (enabled: boolean) => void): void {
+    this.onSoundToggle = onSoundToggle
 
-    // Use template image for automatic dark/light mode support
-    const iconPath = join(__dirname, '../../assets/icons/tray-iconTemplate.png')
-    const icon = nativeImage.createFromPath(iconPath)
-
-    // Fallback: create a simple 16x16 icon if asset not found
-    const trayIcon = icon.isEmpty() ? this.createFallbackIcon() : icon
-
+    const trayIcon = this.createAtomIcon()
     this.tray = new Tray(trayIcon)
     this.tray.setToolTip('ClaudePulse')
 
+    // Click opens the settings menu (like ClaudeGlance)
     this.tray.on('click', () => {
-      this.onToggle?.()
+      this.showMenu()
     })
 
     this.tray.on('right-click', () => {
-      this.showContextMenu()
+      this.showMenu()
     })
   }
 
@@ -40,16 +35,12 @@ export class TrayController {
     }
   }
 
-  getBounds(): Electron.Rectangle | null {
-    return this.tray?.getBounds() ?? null
-  }
-
   destroy(): void {
     this.tray?.destroy()
     this.tray = null
   }
 
-  private showContextMenu(): void {
+  private showMenu(): void {
     const menu = Menu.buildFromTemplate([
       {
         label: `ClaudePulse v${app.getVersion()}`,
@@ -62,7 +53,18 @@ export class TrayController {
       },
       { type: 'separator' },
       {
-        label: 'Quit',
+        label: 'Sound Notifications',
+        type: 'checkbox',
+        checked: this.soundEnabled,
+        click: (item) => {
+          this.soundEnabled = item.checked
+          this.onSoundToggle?.(item.checked)
+        },
+      },
+      { type: 'separator' },
+      {
+        label: 'Quit ClaudePulse',
+        accelerator: 'CmdOrCtrl+Q',
         click: () => app.quit(),
       },
     ])
@@ -70,30 +72,70 @@ export class TrayController {
     this.tray?.popUpContextMenu(menu)
   }
 
-  private createFallbackIcon(): Electron.NativeImage {
-    // Create a simple 16x16 orange circle icon
-    const size = 16
+  /**
+   * Create an atom/orbital style icon in Anthropic warm orange.
+   * 16x16 template icon with orbital rings around a center dot.
+   */
+  private createAtomIcon(): Electron.NativeImage {
+    const size = 32
     const canvas = Buffer.alloc(size * size * 4)
+    const cx = size / 2
+    const cy = size / 2
 
     for (let y = 0; y < size; y++) {
       for (let x = 0; x < size; x++) {
-        const dx = x - size / 2
-        const dy = y - size / 2
-        const dist = Math.sqrt(dx * dx + dy * dy)
         const idx = (y * size + x) * 4
+        const dx = x - cx
+        const dy = y - cy
 
-        if (dist < size / 2 - 1) {
-          // Warm orange (#d97757)
-          canvas[idx] = 0xd9     // R
-          canvas[idx + 1] = 0x77 // G
-          canvas[idx + 2] = 0x57 // B
-          canvas[idx + 3] = 0xff // A
+        // Center nucleus (solid dot)
+        const dist = Math.sqrt(dx * dx + dy * dy)
+        if (dist < 3.5) {
+          canvas[idx] = 0xd9
+          canvas[idx + 1] = 0x77
+          canvas[idx + 2] = 0x57
+          canvas[idx + 3] = 0xff
+          continue
+        }
+
+        // Orbital ring 1 (horizontal ellipse)
+        const e1x = dx / 12
+        const e1y = dy / 5
+        const ring1 = Math.abs(Math.sqrt(e1x * e1x + e1y * e1y) - 1)
+
+        // Orbital ring 2 (tilted ellipse ~60 degrees)
+        const angle2 = Math.PI / 3
+        const rx2 = dx * Math.cos(angle2) + dy * Math.sin(angle2)
+        const ry2 = -dx * Math.sin(angle2) + dy * Math.cos(angle2)
+        const e2x = rx2 / 12
+        const e2y = ry2 / 5
+        const ring2 = Math.abs(Math.sqrt(e2x * e2x + e2y * e2y) - 1)
+
+        // Orbital ring 3 (tilted ellipse ~-60 degrees)
+        const angle3 = -Math.PI / 3
+        const rx3 = dx * Math.cos(angle3) + dy * Math.sin(angle3)
+        const ry3 = -dx * Math.sin(angle3) + dy * Math.cos(angle3)
+        const e3x = rx3 / 12
+        const e3y = ry3 / 5
+        const ring3 = Math.abs(Math.sqrt(e3x * e3x + e3y * e3y) - 1)
+
+        const minRing = Math.min(ring1, ring2, ring3)
+        if (minRing < 0.12) {
+          const alpha = Math.max(0, 1 - minRing / 0.12)
+          canvas[idx] = 0xd9
+          canvas[idx + 1] = 0x77
+          canvas[idx + 2] = 0x57
+          canvas[idx + 3] = Math.round(alpha * 255)
         } else {
-          canvas[idx + 3] = 0x00 // Transparent
+          canvas[idx + 3] = 0x00
         }
       }
     }
 
-    return nativeImage.createFromBuffer(canvas, { width: size, height: size })
+    return nativeImage.createFromBuffer(canvas, {
+      width: size,
+      height: size,
+      scaleFactor: 2.0,
+    })
   }
 }

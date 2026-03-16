@@ -1,4 +1,5 @@
 import { Notification } from 'electron'
+import { execFile } from 'child_process'
 import type { SessionState } from '../shared/types'
 
 export interface NotifierSettings {
@@ -42,6 +43,7 @@ export class Notifier {
     })
 
     notification.show()
+    this.playSound('Ping')
   }
 
   notifyCompleted(session: SessionState): void {
@@ -55,10 +57,20 @@ export class Notifier {
     const notification = new Notification({
       title: 'Claude Code task completed',
       body: `${session.project} #${shortId} has finished`,
-      silent: true,
+      silent: false,
     })
 
     notification.show()
+    this.playSound('Hero')
+  }
+
+  private playSound(name: 'Ping' | 'Hero'): void {
+    // Use same macOS system sounds as ClaudeGlance
+    // Ping = attention/waiting, Hero = completion
+    const soundPath = `/System/Library/Sounds/${name}.aiff`
+    execFile('afplay', [soundPath], () => {
+      // Silent fail — sound is non-critical
+    })
   }
 
   clearSession(sessionId: string): void {
