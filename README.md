@@ -11,6 +11,10 @@
 
 </div>
 
+![Demo](demo.gif)
+
+To regenerate: `vhs demo.tape`
+
 ---
 
 ## English
@@ -106,6 +110,10 @@ bash scripts/install.sh
 | `pnpm make` | Package as distributable (DMG/ZIP) |
 | `bash scripts/install.sh` | Install hooks into Claude Code settings |
 | `bash scripts/uninstall.sh` | Remove hooks from Claude Code settings |
+
+### Why Story
+
+ClaudePulse exists as a companion to ClaudeGlance: where Glance surfaces per-session status, Pulse tracks rate-of-activity (tokens/second, message frequency, tool-call cadence) so I can notice when a Claude run is genuinely stuck versus still chewing. Forked from the ClaudeGlance genre for rapid iteration and kept intentionally zero-interference — Hook reporter exits silently on failure, never blocking Claude Code. The story is that long-running AI sessions benefit from vital-sign monitoring, not just on/off visibility.
 
 ---
 
