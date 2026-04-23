@@ -1,6 +1,6 @@
-# ClaudePulse
-
 <div align="center">
+
+# ClaudePulse
 
 [![Language](https://img.shields.io/badge/Language-TypeScript-3178C6?style=flat-square&logo=typescript)](https://typescriptlang.org)
 [![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](LICENSE)

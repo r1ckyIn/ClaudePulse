@@ -2,8 +2,8 @@ import { app, ipcMain } from 'electron'
 import { join } from 'path'
 import { IPCServer } from './ipc-server'
 import { SessionManager } from './session-manager'
+import { FloatingBall } from './floating-ball'
 import { TrayController } from './tray-controller'
-import { PopoverWindow } from './popover-window'
 import { HookInstaller } from './hook-installer'
 import { StatsStore } from './stats-store'
 import { Notifier } from './notifier'
@@ -12,17 +12,20 @@ import { IPC_CHANNELS } from '../shared/types'
 // Core components
 const ipcServer = new IPCServer()
 const sessionManager = new SessionManager()
+const floatingBall = new FloatingBall()
 const trayController = new TrayController()
-const popoverWindow = new PopoverWindow()
 const notifier = new Notifier()
 let statsStore: StatsStore | null = null
 
 function broadcastSessions(): void {
   const sessions = sessionManager.getAll()
   trayController.updateCount(sessions.length)
-  popoverWindow.updateHeight(sessions.length)
 
-  const win = popoverWindow.getWindow()
+  if (floatingBall.isExpanded()) {
+    floatingBall.updateExpandedHeight(sessions.length)
+  }
+
+  const win = floatingBall.getWindow()
   if (win && !win.isDestroyed()) {
     win.webContents.send(IPC_CHANNELS.SESSIONS_UPDATED, sessions)
   }
@@ -36,10 +39,17 @@ function setupIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.GET_STATS, () => {
     return statsStore?.getStats() ?? []
   })
+
+  ipcMain.on(IPC_CHANNELS.TOGGLE_WINDOW, () => {
+    floatingBall.toggle()
+  })
+
+  ipcMain.on(IPC_CHANNELS.UPDATE_SETTINGS, (_event, settings) => {
+    notifier.updateSettings(settings)
+  })
 }
 
 function installHooks(): void {
-  // Determine reporter source path (bundled with the app)
   const isDev = !app.isPackaged
   const reporterSource = isDev
     ? join(__dirname, '../../scripts/claude-pulse-reporter.js')
@@ -58,28 +68,34 @@ function installHooks(): void {
 }
 
 app.whenReady().then(async () => {
-  // Hide dock icon — this is a menu bar app
+  // Hide dock icon — floating ball + tray app
   app.dock?.hide()
 
   // Install hooks on first launch
   installHooks()
 
-  // Create tray icon
-  trayController.create(() => {
-    const bounds = trayController.getBounds()
-    popoverWindow.toggle(bounds)
+  // Create tray icon for settings (like ClaudeGlance)
+  trayController.create({
+    onSoundToggle: (soundEnabled) => {
+      notifier.updateSettings({
+        notifications: soundEnabled,
+        completionNotifications: soundEnabled,
+      })
+    },
+    onToggleHUD: () => {
+      floatingBall.toggle()
+    },
   })
 
-  // Create popover window
-  popoverWindow.create()
+  // Create floating ball (main monitoring UI)
+  floatingBall.create()
 
-  // Start session manager (cleanup timer)
+  // Start session manager
   sessionManager.start()
 
-  // Wire session manager events to UI and notifications
+  // Wire session events
   sessionManager.on('updated', (sessions) => {
     broadcastSessions()
-    // Send notifications for waiting/completed sessions
     for (const session of sessions) {
       notifier.notifyIfWaiting(session)
       notifier.notifyCompleted(session)
@@ -87,7 +103,7 @@ app.whenReady().then(async () => {
   })
   sessionManager.on('removed', (id: string) => {
     notifier.clearSession(id)
-    const win = popoverWindow.getWindow()
+    const win = floatingBall.getWindow()
     if (win && !win.isDestroyed()) {
       win.webContents.send(IPC_CHANNELS.SESSION_REMOVED, id)
     }
@@ -96,7 +112,7 @@ app.whenReady().then(async () => {
   // Initialize stats store
   statsStore = new StatsStore()
 
-  // Start IPC server and forward messages to session manager + stats
+  // Start IPC server
   await ipcServer.start()
   ipcServer.on('message', (msg) => {
     sessionManager.handleMessage(msg)
@@ -108,23 +124,17 @@ app.whenReady().then(async () => {
   // Setup renderer IPC handlers
   setupIpcHandlers()
 
-  // Handle settings updates from renderer
-  ipcMain.on(IPC_CHANNELS.UPDATE_SETTINGS, (_event, settings) => {
-    notifier.updateSettings(settings)
-  })
-
-  console.log('[ClaudePulse] Ready. Listening for Claude Code hook events.')
+  console.log('[ClaudePulse] Ready. Floating ball + tray active.')
 })
 
 app.on('before-quit', async () => {
   notifier.clearAll()
   sessionManager.stop()
   trayController.destroy()
-  popoverWindow.destroy()
+  floatingBall.destroy()
   await ipcServer.stop()
 })
 
-// Prevent app from quitting when all windows are closed (menu bar app)
 app.on('window-all-closed', (e: Event) => {
   e.preventDefault()
 })

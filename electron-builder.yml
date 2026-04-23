@@ -1,0 +1,16 @@
+appId: com.r1ckyin.claudepulse
+productName: ClaudePulse
+directories:
+  buildResources: assets
+  output: dist
+files:
+  - out/**/*
+  - package.json
+extraResources:
+  - from: scripts/claude-pulse-reporter.js
+    to: scripts/claude-pulse-reporter.js
+mac:
+  category: public.app-category.developer-tools
+  target:
+    - target: dir
+      arch: x64

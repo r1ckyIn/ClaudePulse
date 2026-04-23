@@ -1,14 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-// Mock Electron's Notification before importing Notifier
-vi.mock('electron', () => ({
-  Notification: vi.fn().mockImplementation(() => ({
-    show: vi.fn(),
-  })),
+// Mock child_process execFile for sound
+vi.mock('child_process', () => ({
+  execFile: vi.fn((_cmd, _args, cb) => { if (cb) cb(null) }),
 }))
 
 import { Notifier } from '../../src/main/notifier'
-import { Notification } from 'electron'
+import { execFile } from 'child_process'
 import type { SessionState } from '../../src/shared/types'
 
 function makeSession(overrides: Partial<SessionState> = {}): SessionState {
@@ -34,95 +32,87 @@ describe('Notifier', () => {
     vi.clearAllMocks()
   })
 
-  it('should send notification when session enters waiting state', () => {
-    const session = makeSession({ status: 'waiting' })
-    notifier.notifyIfWaiting(session)
-
-    expect(Notification).toHaveBeenCalledWith({
-      title: 'Claude Code needs input',
-      body: 'my-project #sess is waiting for your response',
-      silent: false,
-    })
-  })
-
-  it('should not send duplicate notification for same waiting session', () => {
-    const session = makeSession({ status: 'waiting' })
-    notifier.notifyIfWaiting(session)
-    notifier.notifyIfWaiting(session)
-
-    expect(Notification).toHaveBeenCalledTimes(1)
-  })
-
-  it('should send notification again after session leaves and re-enters waiting', () => {
-    const session = makeSession({ status: 'waiting' })
-    notifier.notifyIfWaiting(session)
-
-    // Session becomes active (clears waiting tracking)
-    notifier.notifyIfWaiting(makeSession({ status: 'thinking' }))
-
-    // Session waits again
+  it('should play Ping sound when session enters waiting state', () => {
     notifier.notifyIfWaiting(makeSession({ status: 'waiting' }))
 
-    expect(Notification).toHaveBeenCalledTimes(2)
+    expect(execFile).toHaveBeenCalledWith(
+      'afplay',
+      ['/System/Library/Sounds/Ping.aiff'],
+      expect.any(Function)
+    )
   })
 
-  it('should not send notification for non-waiting sessions', () => {
+  it('should not play duplicate sound for same waiting session', () => {
+    notifier.notifyIfWaiting(makeSession({ status: 'waiting' }))
+    notifier.notifyIfWaiting(makeSession({ status: 'waiting' }))
+
+    expect(execFile).toHaveBeenCalledTimes(1)
+  })
+
+  it('should play sound again after session leaves and re-enters waiting', () => {
+    notifier.notifyIfWaiting(makeSession({ status: 'waiting' }))
+    notifier.notifyIfWaiting(makeSession({ status: 'thinking' }))
+
+    // Force past debounce
+    notifier['lastSoundTime'] = {}
+
+    notifier.notifyIfWaiting(makeSession({ status: 'waiting' }))
+
+    expect(execFile).toHaveBeenCalledTimes(2)
+  })
+
+  it('should not play sound for non-waiting sessions', () => {
     for (const status of ['idle', 'reading', 'writing', 'thinking', 'completed', 'error'] as const) {
       notifier.notifyIfWaiting(makeSession({ status }))
     }
 
-    expect(Notification).not.toHaveBeenCalled()
+    expect(execFile).not.toHaveBeenCalled()
   })
 
-  it('should send completion notification only once (no spam)', () => {
-    const session = makeSession({ status: 'completed' })
-    notifier.notifyCompleted(session)
-    notifier.notifyCompleted(session)
-    notifier.notifyCompleted(session)
+  it('should play Hero sound on completion only once (no spam)', () => {
+    notifier.notifyCompleted(makeSession({ status: 'completed' }))
+    notifier.notifyCompleted(makeSession({ status: 'completed' }))
+    notifier.notifyCompleted(makeSession({ status: 'completed' }))
 
-    // Should only fire once thanks to dedup
-    expect(Notification).toHaveBeenCalledTimes(1)
-    expect(Notification).toHaveBeenCalledWith({
-      title: 'Claude Code task completed',
-      body: 'my-project #sess has finished',
-      silent: true,
-    })
+    expect(execFile).toHaveBeenCalledTimes(1)
+    expect(execFile).toHaveBeenCalledWith(
+      'afplay',
+      ['/System/Library/Sounds/Hero.aiff'],
+      expect.any(Function)
+    )
   })
 
   it('should respect notifications disabled setting', () => {
     notifier.updateSettings({ notifications: false, completionNotifications: true })
 
     notifier.notifyIfWaiting(makeSession({ status: 'waiting' }))
-    expect(Notification).not.toHaveBeenCalled()
+    expect(execFile).not.toHaveBeenCalled()
   })
 
   it('should respect completion notifications disabled setting', () => {
     notifier.updateSettings({ notifications: true, completionNotifications: false })
 
     notifier.notifyCompleted(makeSession({ status: 'completed' }))
-    expect(Notification).not.toHaveBeenCalled()
+    expect(execFile).not.toHaveBeenCalled()
   })
 
   it('should clear session tracking on clearSession', () => {
-    const session = makeSession({ status: 'waiting' })
-    notifier.notifyIfWaiting(session)
+    notifier.notifyIfWaiting(makeSession({ status: 'waiting' }))
 
     notifier.clearSession('session-abc')
+    notifier['lastSoundTime'] = {} // Reset debounce
 
-    // Should be able to notify again
-    notifier.notifyIfWaiting(session)
-    expect(Notification).toHaveBeenCalledTimes(2)
+    notifier.notifyIfWaiting(makeSession({ status: 'waiting' }))
+    expect(execFile).toHaveBeenCalledTimes(2)
   })
 
   it('should clear all tracking on clearAll', () => {
     notifier.notifyIfWaiting(makeSession({ sessionId: 's1', status: 'waiting' }))
-    notifier.notifyIfWaiting(makeSession({ sessionId: 's2', status: 'waiting' }))
 
     notifier.clearAll()
+    notifier['lastSoundTime'] = {} // Reset debounce
 
     notifier.notifyIfWaiting(makeSession({ sessionId: 's1', status: 'waiting' }))
-    notifier.notifyIfWaiting(makeSession({ sessionId: 's2', status: 'waiting' }))
-
-    expect(Notification).toHaveBeenCalledTimes(4)
+    expect(execFile).toHaveBeenCalledTimes(2)
   })
 })
